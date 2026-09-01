@@ -37,6 +37,17 @@ const colorForGrade = (grade) => GRADE_COLORS[grade] ?? "slate";
 
 const TREND_ICON = { up: TrendingUp, down: TrendingDown };
 
+const PERFORMANCE_STYLES = {
+  Performing: "bg-green-100 text-green-700",
+  NonPerforming: "bg-red-100 text-red-700",
+  Defaulted: "bg-red-100 text-red-700",
+};
+
+const formatMoney = (amount, currency) =>
+  `${currency ?? "KES"} ${Number(amount ?? 0).toLocaleString()}`;
+
+const formatDate = (isoString) => (isoString ? isoString.slice(0, 10) : "—");
+
 const cost = VERIFICATION_COST.credit_score;
 
 const CreditScoreCheck = ({ walletBalance, onFinish }) => {
@@ -70,7 +81,7 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
           type: "credit_score",
           documentType: null,
           reference: idNumber,
-          customerName: response.fullName || TYPE_LABELS.credit_score,
+          customerName: response.profile.fullName || TYPE_LABELS.credit_score,
           status: response.hasCreditHistory ? "match" : "no_match",
           cost,
           result: response,
@@ -270,18 +281,28 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
           </div>
         ) : result ? (
           <div>
-            <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
-              <div className={`w-32 h-32 rounded-full border-8 ${bandStyle.ring} flex flex-col items-center justify-center flex-shrink-0`}>
-                <span className="text-3xl font-black text-slate-800 dark:text-white">{result.score ?? "—"}</span>
-                <span className="text-xs text-slate-400">Grade {result.grade}</span>
-              </div>
+            <div className="flex flex-col md:flex-row items-center gap-6 mb-4">
+              {result.score !== null ? (
+                <div className={`w-32 h-32 rounded-full border-8 ${bandStyle.ring} flex flex-col items-center justify-center flex-shrink-0`}>
+                  <span className="text-3xl font-black text-slate-800 dark:text-white">{result.score}</span>
+                  <span className="text-xs text-slate-400">Grade {result.grade}</span>
+                </div>
+              ) : (
+                <div className="w-32 h-32 rounded-full border-8 border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center flex-shrink-0 text-center px-2">
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Not scored</span>
+                  {result.rawScore && (
+                    <span className="text-xs text-slate-400">raw {result.rawScore}</span>
+                  )}
+                </div>
+              )}
               <div>
                 <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${bandStyle.bg} ${bandStyle.text} mb-2`}>
                   {TrendIcon ? <TrendIcon className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
                   Grade {result.grade}
                 </span>
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                  {result.fullName || (subjectType === "individual" ? "Individual" : "Company")} — {result.idNumber}
+                  {result.profile.fullName || (subjectType === "individual" ? "Individual" : "Company")} —{" "}
+                  {result.profile.idNumber}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {result.summary.openContracts ?? 0} open · {result.summary.closedContracts ?? 0} closed ·{" "}
@@ -291,11 +312,51 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
               </div>
             </div>
 
+            {result.reasons.length > 0 && (
+              <div className="flex items-start gap-2 p-3 mb-6 rounded-xl bg-orange-50 dark:bg-orange-900/20 text-sm text-orange-700 dark:text-orange-400">
+                <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{result.reasons.map((r) => r.label).join(", ")}</span>
+              </div>
+            )}
+
+            {(result.profile.phone || result.profile.email || result.profile.address || result.profile.dateOfBirthOrRegistration) && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                {result.profile.dateOfBirthOrRegistration && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase">
+                      {subjectType === "individual" ? "Date of Birth" : "Registered"}
+                    </p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200">
+                      {formatDate(result.profile.dateOfBirthOrRegistration)}
+                    </p>
+                  </div>
+                )}
+                {result.profile.phone && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase">Phone</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200">{result.profile.phone}</p>
+                  </div>
+                )}
+                {result.profile.email && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase">Email</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200">{result.profile.email}</p>
+                  </div>
+                )}
+                {result.profile.address && (
+                  <div>
+                    <p className="text-xs text-slate-400 uppercase">Address</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200">{result.profile.address}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
               {[
                 { label: "Open Contracts", value: result.summary.openContracts },
                 { label: "Closed Contracts", value: result.summary.closedContracts },
-                { label: "Overdue Amount", value: `KES ${(result.summary.overdueAmount ?? 0).toLocaleString()}` },
+                { label: "Overdue Amount", value: formatMoney(result.summary.overdueAmount, result.summary.currency) },
                 { label: "Inquiries (12mo)", value: result.summary.inquiriesLast12Months },
                 { label: "Active Disputes", value: result.summary.activeDisputes },
               ].map((stat) => (
@@ -331,6 +392,7 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
                     <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Outstanding</th>
                     <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Overdue</th>
                     <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Performance</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -339,22 +401,21 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
                       <td className="py-2.5 font-medium text-slate-800 dark:text-white">{contract.subscriber}</td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-300">{contract.productType}</td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-300">
-                        KES {contract.outstandingAmount.toLocaleString()}
+                        {formatMoney(contract.outstandingAmount, contract.currency)}
                       </td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-300">
                         {contract.overdueAmount > 0
-                          ? `KES ${contract.overdueAmount.toLocaleString()} (${contract.daysInArrears}d)`
+                          ? `${formatMoney(contract.overdueAmount, contract.currency)} (${contract.daysInArrears}d)`
                           : "—"}
                       </td>
+                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{contract.status}</td>
                       <td className="py-2.5">
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                            contract.status === "Active"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-slate-100 text-slate-600"
+                            PERFORMANCE_STYLES[contract.performingIndicator] ?? "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          {contract.status}
+                          {contract.performingIndicator ?? "—"}
                         </span>
                       </td>
                     </tr>
@@ -362,7 +423,7 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
 
                   {result.contracts.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-4 text-center text-slate-500 dark:text-slate-400">
+                      <td colSpan={6} className="py-4 text-center text-slate-500 dark:text-slate-400">
                         No contracts on file.
                       </td>
                     </tr>
@@ -370,6 +431,13 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
                 </tbody>
               </table>
             </div>
+
+            {result.providerMessage && (
+              <p className="text-xs text-slate-400 mt-4">
+                Bureau response: {result.providerMessage}
+                {result.ref && ` · Ref: ${result.ref}`}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center text-center py-8">

@@ -53,18 +53,31 @@ const normalizeBusiness = (response) => {
 
 const normalizeCreditScore = (response) => {
   const result = response.result ?? {};
+  const profile = result.profile ?? {};
 
   return {
     hasCreditHistory: Boolean(response.hasCreditHistory),
     grade: result.grade ?? null,
     score: result.score ?? null,
+    rawScore: result.rawScore ?? null,
     scoreTrend: result.scoreTrend ?? null,
-    fullName: result.profile?.fullName ?? null,
-    idNumber: result.profile?.idNumber ?? null,
+    reasons: result.reasons ?? [],
+    profile: {
+      fullName: profile.fullName ?? null,
+      idNumber: profile.idNumber ?? null,
+      dateOfBirthOrRegistration: profile.dateOfBirthOrRegistration ?? null,
+      gender: profile.gender ?? null,
+      maritalStatus: profile.maritalStatus ?? null,
+      employerName: profile.employerName ?? null,
+      phone: profile.phone ?? null,
+      email: profile.email ?? null,
+      address: profile.address ?? null,
+    },
     summary: result.summary ?? {},
     scoreHistory: result.scoreHistory ?? [],
     contracts: result.contracts ?? [],
-    reasons: result.reasons ?? [],
+    providerSuccess: result.providerSuccess ?? null,
+    providerMessage: result.providerMessage ?? null,
     ref: response.ref,
     respondedAt: response.completedAt,
     durationMs: response.durationMs,
