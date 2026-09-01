@@ -1,9 +1,14 @@
 // Deploy: npx supabase functions deploy kyc-verify
-// Secret:  npx supabase secrets set XOBRIQ_API_TOKEN=xob_test_...
 //
-// Thin proxy so the Xobriq bearer token never reaches the browser. Supabase verifies
-// the caller's auth JWT before this function runs (default behavior), so only signed-in
-// users can trigger a check. No other business logic belongs here.
+// Xobriq issues separate, differently-scoped bearer tokens per product, so two
+// secrets are required (a token valid for /kyc/* will 401 on /credit-score/*
+// and vice versa):
+//   npx supabase secrets set XOBRIQ_API_TOKEN=xob_live_...          (identity/phone/business)
+//   npx supabase secrets set XOBRIQ_CREDIT_SCORE_TOKEN=xob_live_... (credit score)
+//
+// Thin proxy so neither Xobriq bearer token ever reaches the browser. Supabase
+// verifies the caller's auth JWT before this function runs (default behavior),
+// so only signed-in users can trigger a check. No other business logic belongs here.
 
 const XOBRIQ_KYC_BASE_URL = "https://xobriq.ai/api/v1/kyc";
 const XOBRIQ_CREDIT_REPORT_URL = "https://xobriq.ai/api/v1/credit-score/verify-credit-report";
@@ -12,6 +17,12 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Xobriq issues separately-scoped API keys per product: the KYC token below
+// only works on /kyc/*, and a distinct token is required for Credit Score.
+function tokenEnvVarFor(type) {
+  return type === "credit_score" ? "XOBRIQ_CREDIT_SCORE_TOKEN" : "XOBRIQ_API_TOKEN";
+}
 
 function buildXobriqRequest(payload) {
   switch (payload.type) {
@@ -22,6 +33,7 @@ function buildXobriqRequest(payload) {
           identifierType: payload.documentType,
           identifierNumber: payload.reference,
           lastName: payload.lastName || undefined,
+          consentConfirmed: true,
         },
       };
     case "phone":
@@ -30,6 +42,7 @@ function buildXobriqRequest(payload) {
         body: {
           nationalId: payload.nationalId,
           mobileNumber: payload.reference,
+          consentConfirmed: true,
         },
       };
     case "business":
@@ -37,6 +50,7 @@ function buildXobriqRequest(payload) {
         url: `${XOBRIQ_KYC_BASE_URL}/verify-business`,
         body: {
           registrationNumber: payload.reference,
+          consentConfirmed: true,
         },
       };
     case "credit_score":
@@ -73,7 +87,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("XOBRIQ_API_TOKEN")}`,
+        Authorization: `Bearer ${Deno.env.get(tokenEnvVarFor(payload.type))}`,
       },
       body: JSON.stringify(request.body),
     });
