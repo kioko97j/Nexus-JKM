@@ -15,6 +15,7 @@ const PAGE_TITLES = {
   dashboard: "Dashboard",
   verifications: "Verifications",
   "verifications-new": "New Verification",
+  "credit-score": "Credit Score",
   customers: "Customers",
   reports: "Reports",
   wallet: "Wallet & Billing",

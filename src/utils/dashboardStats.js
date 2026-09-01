@@ -18,7 +18,7 @@ export function deriveDashboardStats(verifications) {
     .sort((a, b) => a.order - b.order)
     .map(({ month, passed, failed }) => ({ month, passed, failed }));
 
-  const typeCounts = { identity: 0, phone: 0, business: 0 };
+  const typeCounts = { identity: 0, phone: 0, business: 0, credit_score: 0 };
   verifications.forEach((v) => {
     if (v.type in typeCounts) typeCounts[v.type] += 1;
   });

@@ -9,6 +9,7 @@ import {
   Settings,
   ChevronDown,
   LogOut,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -26,6 +27,11 @@ const menuItems = [
       { id: "verifications-new", label: "New Verification" },
       { id: "verifications", label: "History" },
     ],
+  },
+  {
+    id: "credit-score",
+    icon: TrendingUp,
+    label: "Credit Score",
   },
   {
     id: "customers",

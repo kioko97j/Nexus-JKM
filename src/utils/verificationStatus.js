@@ -8,4 +8,5 @@ export const TYPE_LABELS = {
   identity: "Identity",
   phone: "Phone",
   business: "Business (KYB)",
+  credit_score: "Credit Score",
 };

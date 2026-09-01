@@ -14,7 +14,7 @@ create table if not exists public.wallets (
 create table if not exists public.verifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  type text not null check (type in ('identity', 'phone', 'business')),
+  type text not null check (type in ('identity', 'phone', 'business', 'credit_score')),
   document_type text,
   reference text not null,
   customer_name text,
@@ -23,6 +23,12 @@ create table if not exists public.verifications (
   result jsonb,
   created_at timestamptz not null default now()
 );
+
+-- Widen the type constraint for projects created before the Credit Score
+-- module existed (safe/no-op if the table was just created above already).
+alter table public.verifications drop constraint if exists verifications_type_check;
+alter table public.verifications add constraint verifications_type_check
+  check (type in ('identity', 'phone', 'business', 'credit_score'));
 
 create index if not exists verifications_user_id_created_at_idx
   on public.verifications (user_id, created_at desc);

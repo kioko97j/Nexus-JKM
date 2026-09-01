@@ -18,4 +18,5 @@ export const VERIFICATION_COST = {
   identity: 50,
   phone: 30,
   business: 200,
+  credit_score: 100,
 };

@@ -6,6 +6,7 @@ const TYPE_COLORS = {
   identity: "#3B82F6",
   phone: "#8B5CF6",
   business: "#10B981",
+  credit_score: "#F59E0B",
 };
 
 const VerificationTypeChart = ({ data }) => {

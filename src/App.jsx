@@ -12,6 +12,7 @@ import RecentActivity from "./components/Dashboards/RecentActivity";
 
 import VerificationsList from "./components/Verifications/VerificationsList";
 import NewVerification from "./components/Verifications/NewVerification";
+import CreditScoreCheck from "./components/CreditScore/CreditScoreCheck";
 import AuthPage from "./components/Auth/AuthPage";
 
 import { useAuth } from "./context/AuthContext";
@@ -30,6 +31,11 @@ const App = () => {
     await addVerification(draft);
     await debit(draft.cost);
     setCurrentPage("verifications");
+  };
+
+  const handleFinishCreditScore = async (draft) => {
+    await addVerification(draft);
+    await debit(draft.cost);
   };
 
   if (authLoading) {
@@ -134,6 +140,14 @@ const App = () => {
                 <NewVerification
                   walletBalance={walletBalance}
                   onFinish={handleFinishVerification}
+                />
+              )}
+
+              {/* Credit Score */}
+              {currentPage === "credit-score" && (
+                <CreditScoreCheck
+                  walletBalance={walletBalance}
+                  onFinish={handleFinishCreditScore}
                 />
               )}
 
