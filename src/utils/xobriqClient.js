@@ -51,10 +51,31 @@ const normalizeBusiness = (response) => {
   };
 };
 
+const normalizeCreditScore = (response) => {
+  const result = response.result ?? {};
+
+  return {
+    hasCreditHistory: Boolean(response.hasCreditHistory),
+    grade: result.grade ?? null,
+    score: result.score ?? null,
+    scoreTrend: result.scoreTrend ?? null,
+    fullName: result.profile?.fullName ?? null,
+    idNumber: result.profile?.idNumber ?? null,
+    summary: result.summary ?? {},
+    scoreHistory: result.scoreHistory ?? [],
+    contracts: result.contracts ?? [],
+    reasons: result.reasons ?? [],
+    ref: response.ref,
+    respondedAt: response.completedAt,
+    durationMs: response.durationMs,
+  };
+};
+
 const NORMALIZERS = {
   identity: normalizeIdentity,
   phone: normalizePhone,
   business: normalizeBusiness,
+  credit_score: normalizeCreditScore,
 };
 
 export async function verifyWithXobriq(type, fields) {

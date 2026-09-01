@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import {
   TrendingUp,
+  TrendingDown,
+  Minus,
   User,
   Building2,
   Zap,
@@ -10,8 +12,9 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
+  Info,
 } from "lucide-react";
-import { simulateCreditScore } from "../../utils/simulateCreditScore";
+import { verifyWithXobriq } from "../../utils/xobriqClient";
 import { VERIFICATION_COST } from "../../data/mockVerifications";
 import { TYPE_LABELS } from "../../utils/verificationStatus";
 
@@ -20,7 +23,19 @@ const BAND_STYLES = {
   orange: { ring: "border-orange-500", text: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20" },
   blue: { ring: "border-blue-500", text: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" },
   emerald: { ring: "border-emerald-500", text: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+  slate: { ring: "border-slate-300 dark:border-slate-600", text: "text-slate-500 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-900" },
 };
+
+const GRADE_COLORS = {
+  "A+": "emerald", A: "emerald", "A-": "emerald",
+  "B+": "blue", B: "blue", "B-": "blue",
+  "C+": "orange", C: "orange", "C-": "orange",
+  D: "red", E: "red", F: "red",
+};
+
+const colorForGrade = (grade) => GRADE_COLORS[grade] ?? "slate";
+
+const TREND_ICON = { up: TrendingUp, down: TrendingDown };
 
 const cost = VERIFICATION_COST.credit_score;
 
@@ -44,7 +59,10 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
     setSaveError(null);
 
     try {
-      const response = await simulateCreditScore({ subjectType, idNumber });
+      const response = await verifyWithXobriq("credit_score", {
+        subjectType,
+        reference: idNumber,
+      });
       setResult(response);
       setSaving(true);
       try {
@@ -52,8 +70,8 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
           type: "credit_score",
           documentType: null,
           reference: idNumber,
-          customerName: TYPE_LABELS.credit_score,
-          status: "match",
+          customerName: response.fullName || TYPE_LABELS.credit_score,
+          status: response.hasCreditHistory ? "match" : "no_match",
           cost,
           result: response,
         });
@@ -69,7 +87,8 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
     }
   };
 
-  const bandStyle = result ? BAND_STYLES[result.bandColor] : null;
+  const bandStyle = result ? BAND_STYLES[colorForGrade(result.grade)] : null;
+  const TrendIcon = result ? TREND_ICON[result.scoreTrend] : null;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -87,7 +106,7 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
             </h2>
 
             <p className="text-slate-500 dark:text-slate-400 mb-6">
-              Pull a bureau-style credit score and full report for any individual or
+              Pull a bureau-verified credit score and full report for any individual or
               company. Pick who, confirm consent, one click.
             </p>
 
@@ -179,7 +198,7 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
                   setIdNumber(e.target.value);
                   setResult(null);
                 }}
-                placeholder={subjectType === "individual" ? "e.g. 12345678" : "e.g. CPR/2014/475757"}
+                placeholder={subjectType === "individual" ? "e.g. 29184023" : "e.g. CPR/2014/475757"}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -239,55 +258,100 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
             <p className="font-medium text-slate-800 dark:text-white">Pulling credit report…</p>
           </div>
+        ) : result && !result.hasCreditHistory ? (
+          <div className="flex flex-col items-center text-center py-8">
+            <Info className="w-8 h-8 text-slate-400 mb-3" />
+            <p className="font-medium text-slate-800 dark:text-white">No credit history found</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+              {result.reasons.length > 0
+                ? result.reasons.map((r) => r.label).join(", ")
+                : "No bureau record exists for this ID."}
+            </p>
+          </div>
         ) : result ? (
           <div>
             <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
               <div className={`w-32 h-32 rounded-full border-8 ${bandStyle.ring} flex flex-col items-center justify-center flex-shrink-0`}>
-                <span className="text-3xl font-black text-slate-800 dark:text-white">{result.score}</span>
-                <span className="text-xs text-slate-400">/ 900</span>
+                <span className="text-3xl font-black text-slate-800 dark:text-white">{result.score ?? "—"}</span>
+                <span className="text-xs text-slate-400">Grade {result.grade}</span>
               </div>
               <div>
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${bandStyle.bg} ${bandStyle.text} mb-2`}>
-                  {result.band}
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${bandStyle.bg} ${bandStyle.text} mb-2`}>
+                  {TrendIcon ? <TrendIcon className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                  Grade {result.grade}
                 </span>
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                  {result.subjectType === "individual" ? "Individual" : "Company"} credit report — {result.idNumber}
+                  {result.fullName || (subjectType === "individual" ? "Individual" : "Company")} — {result.idNumber}
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {result.paymentHistory.onTimeRate}% on-time payments across{" "}
-                  {result.paymentHistory.totalAccounts} account
-                  {result.paymentHistory.totalAccounts === 1 ? "" : "s"}
-                  {result.paymentHistory.missedPayments > 0 &&
-                    ` · ${result.paymentHistory.missedPayments} overdue`}
+                  {result.summary.openContracts ?? 0} open · {result.summary.closedContracts ?? 0} closed ·{" "}
+                  {result.summary.inquiriesLast12Months ?? 0} inquiries (12mo) ·{" "}
+                  {result.summary.activeDisputes ?? 0} disputes
                 </p>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+              {[
+                { label: "Open Contracts", value: result.summary.openContracts },
+                { label: "Closed Contracts", value: result.summary.closedContracts },
+                { label: "Overdue Amount", value: `KES ${(result.summary.overdueAmount ?? 0).toLocaleString()}` },
+                { label: "Inquiries (12mo)", value: result.summary.inquiriesLast12Months },
+                { label: "Active Disputes", value: result.summary.activeDisputes },
+              ].map((stat) => (
+                <div key={stat.label} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 text-center">
+                  <p className="text-lg font-bold text-slate-800 dark:text-white">{stat.value ?? "—"}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {result.scoreHistory.length > 0 && (
+              <>
+                <h4 className="text-sm font-semibold text-slate-500 uppercase mb-3">Score History</h4>
+                <div className="flex flex-wrap gap-3 mb-8">
+                  {result.scoreHistory.map((entry, index) => (
+                    <div key={index} className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 text-sm">
+                      <span className="text-slate-500 dark:text-slate-400">{entry.date}</span>{" "}
+                      <span className="font-semibold text-slate-800 dark:text-white">{entry.score}</span>{" "}
+                      <span className="text-slate-400">({entry.grade})</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             <h4 className="text-sm font-semibold text-slate-500 uppercase mb-3">Contracts</h4>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Lender</th>
-                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Type</th>
-                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Amount</th>
+                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Subscriber</th>
+                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Product</th>
+                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Outstanding</th>
+                    <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Overdue</th>
                     <th className="text-left py-2 text-xs font-semibold text-slate-500 uppercase">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.contracts.map((contract, index) => (
                     <tr key={index} className="border-b border-slate-100 dark:border-slate-700">
-                      <td className="py-2.5 font-medium text-slate-800 dark:text-white">{contract.lender}</td>
-                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{contract.type}</td>
+                      <td className="py-2.5 font-medium text-slate-800 dark:text-white">{contract.subscriber}</td>
+                      <td className="py-2.5 text-slate-600 dark:text-slate-300">{contract.productType}</td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-300">
-                        KES {contract.amount.toLocaleString()}
+                        KES {contract.outstandingAmount.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 text-slate-600 dark:text-slate-300">
+                        {contract.overdueAmount > 0
+                          ? `KES ${contract.overdueAmount.toLocaleString()} (${contract.daysInArrears}d)`
+                          : "—"}
                       </td>
                       <td className="py-2.5">
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                            contract.status === "Overdue"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
+                            contract.status === "Active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-slate-100 text-slate-600"
                           }`}
                         >
                           {contract.status}
@@ -295,6 +359,14 @@ const CreditScoreCheck = ({ walletBalance, onFinish }) => {
                       </td>
                     </tr>
                   ))}
+
+                  {result.contracts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-slate-500 dark:text-slate-400">
+                        No contracts on file.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

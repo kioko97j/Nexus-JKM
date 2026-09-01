@@ -5,7 +5,8 @@
 // the caller's auth JWT before this function runs (default behavior), so only signed-in
 // users can trigger a check. No other business logic belongs here.
 
-const XOBRIQ_BASE_URL = "https://xobriq.ai/api/v1/kyc";
+const XOBRIQ_KYC_BASE_URL = "https://xobriq.ai/api/v1/kyc";
+const XOBRIQ_CREDIT_REPORT_URL = "https://xobriq.ai/api/v1/credit-score/verify-credit-report";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ function buildXobriqRequest(payload) {
   switch (payload.type) {
     case "identity":
       return {
-        endpoint: "verify-identity",
+        url: `${XOBRIQ_KYC_BASE_URL}/verify-identity`,
         body: {
           identifierType: payload.documentType,
           identifierNumber: payload.reference,
@@ -25,7 +26,7 @@ function buildXobriqRequest(payload) {
       };
     case "phone":
       return {
-        endpoint: "verify-phone",
+        url: `${XOBRIQ_KYC_BASE_URL}/verify-phone`,
         body: {
           nationalId: payload.nationalId,
           mobileNumber: payload.reference,
@@ -33,9 +34,18 @@ function buildXobriqRequest(payload) {
       };
     case "business":
       return {
-        endpoint: "verify-business",
+        url: `${XOBRIQ_KYC_BASE_URL}/verify-business`,
         body: {
           registrationNumber: payload.reference,
+        },
+      };
+    case "credit_score":
+      return {
+        url: XOBRIQ_CREDIT_REPORT_URL,
+        body: {
+          subjectType: payload.subjectType,
+          idValue: payload.reference,
+          consentConfirmed: true,
         },
       };
     default:
@@ -59,7 +69,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const xobriqResponse = await fetch(`${XOBRIQ_BASE_URL}/${request.endpoint}`, {
+    const xobriqResponse = await fetch(request.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
